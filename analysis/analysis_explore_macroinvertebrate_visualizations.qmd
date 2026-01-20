@@ -1,0 +1,332 @@
+---
+title: "WCS MERMAID Explore - Macroinvertebrate Visualizations"
+author:
+  - name: Alexandra Kler Lago
+  - name: Iain R. Caldwell
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+format: 
+  html: #for website
+    embed-resources: true
+editor: visual
+code-fold: true
+code-summary: "Show the code"
+toc: true
+title-block-banner: "#f0f3f5"
+title-block-banner-color: "black"
+include-after-body: "footer.html"
+---
+
+This code provides examples of visualizations that could eventually be shown on [MERMAID Explore](https://explore.datamermaid.org/) for a macroinvertebrate protocol. This protocol has not been added yet but is in progress.
+
+------------------------------------------------------------------------
+
+## Getting summary sample event data from MERMAID
+
+Since the protocol hasn't actually been added yet, this section loads data from a local mock-up file.
+
+Once the protocol is added, this section can be updated to download summary sample event data from [MERMAID](https://datamermaid.org), using the mermaidr package (documentation can be found at <https://data-mermaid.github.io/mermaidr/>).
+
+```{r}
+#| label: Load packages and download data
+#| warning: false
+rm(list = ls()) #remove past stored objects
+options(scipen = 999) #turn off scientific notation
+
+# ###  Load packages and libraries ####
+# # If this is the first time using mermaidr, install the package through "remotes"
+# install.packages("remotes")
+# remotes::install_github("data-mermaid/mermaidr")
+# install.packages("tidyverse")
+# install.packages("plotly")
+# install.packages("htmlwidgets")
+
+library(mermaidr) #package to download data from datamermaid.org
+library(tidyverse) #package that makes it easier to work with data
+library(plotly) #for interactive plotting
+library(htmlwidgets) #for saving plots at html files
+library(readxl)
+
+## Get mock-up data from local XLSX file
+macroinvertbeltSurveySummTBL <- 
+  read_excel("../data/[mermaidr  mockup] Macroinvertebrates belt - Dummy data.xlsx",
+             sheet = "sampleevents")
+
+#### This next section is what could eventually be used for summary sample events
+# #### Get data from MERMAID for creating aggregate visualizations ####
+# allMermaidSampEventsTBL <- mermaidr::mermaid_get_summary_sampleevents()
+```
+
+------------------------------------------------------------------------
+
+## Histogram - Macroinvertebrate densities from sample events
+
+This code creates a histogram of the macroinvertebrate density data from the sample events available. Currently this uses the sample events from the mock-up data but eventually could run on all projects with permissions of "public summary" or "public" using the summary sample events MERMAID endpoint. It includes the total number of surveys (i.e. sample events in MERMAID).
+
+```{r}
+#| label: Histogram - Macroinvertebrate densities from sample events
+
+### Macroinvertebrate density data - only use relevant data
+###   optionally truncate > 5000 ind/ha
+# macroinvertbeltSurveySummTBL <- allMermaidSampEventsTBL %>%
+#    filter(!is.na(density_indha_avg)) %>%
+#    mutate(truncDensity = ifelse(test = density_indha_avg > 5000,
+#                                 yes = 5001,
+#                                 no = density_indha_avg))
+
+# Calculate dynamic tick values
+max_density <- max(macroinvertbeltSurveySummTBL$density_indha_avg, na.rm = TRUE)
+
+# Determine rounding interval based on max value
+if (max_density <= 1000) {
+  interval <- 100
+  max_tick <- ceiling(max_density / 100) * 100
+} else {
+  interval <- 1000
+  max_tick <- ceiling(max_density / 1000) * 1000
+}
+
+# Create sequence of tick values - centered on bins
+tick_vals <- seq(interval/2, max_tick + interval/2, by = interval)  # Include one more bin
+tick_text <- as.character(seq(0, max_tick, by = interval))  # Labels from 0 to max_tick
+# Add "+" to the last tick
+tick_text[length(tick_text)] <- paste0(tick_text[length(tick_text)], "+")
+
+### Create the plot
+macroinvertbeltAggHist <-
+  plot_ly(data = macroinvertbeltSurveySummTBL,
+          x = ~density_indha_avg,
+          type = 'histogram',
+          xbins = list(start = 0, size = 100),
+          marker = list(color = "#769fca"),
+          height = 450,
+          hovertemplate = paste('Bin: %{x} ind/ha',
+                                '<br>%{y} surveys',
+                                '<extra></extra>')) %>%
+  config(displayModeBar = TRUE,
+         displaylogo = FALSE,
+         modeBarButtonsToRemove = c('zoom','pan', 'select', 'zoomIn', 'zoomOut',
+                                    'autoScale', 'resetScale', 'lasso2d',
+                                    'hoverClosestCartesian', 'hoverCompareCartesian')) %>% 
+  layout(bargap = 0.1,
+         xaxis = list(title = "Macroinvertebrate density (ind/ha)",
+                      range = c(0, max_tick + interval),
+                      linecolor = "black",
+                      linewidth = 2,
+                      tickmode = "array",
+                      ticktext = tick_text,
+                      tickvals = tick_vals),
+         yaxis = list(title = "Number of surveys",
+                      linecolor = "black",
+                      linewidth = 2),
+         annotations = list(
+           list(x = 0, y = 1.15,
+                text = "MACROINVERTEBRATE DENSITY", showarrow = FALSE, 
+                xref = 'paper', yref = 'paper', xanchor = 'left', yanchor = 'top',
+                font = list(size = 20)),
+           list(x = 0, y = 1.08,
+                text = paste0(length(macroinvertbeltSurveySummTBL$density_indha_avg),
+                              " Surveys"),
+                showarrow = FALSE, 
+                xref = 'paper', yref = 'paper', xanchor = 'left', yanchor = 'top',
+                font = list(size = 12))
+         ),
+         margin = list(t = 50, b = 75))
+
+# Visualize the plot
+macroinvertbeltAggHist
+```
+
+------------------------------------------------------------------------
+
+## Time series - Densities by year and management
+
+Barplots showing the average macroinvertebrate density (y-axis), each year (x-axis), separately for open access fisheries restricted areas (open access = green, restrictions = blue).
+
+```{r}
+#| label: Time series - Macroinvertebrate density by year and management
+
+##  Assign either "Open Access" or "Restrictions" to macroinvertebrate management 
+macroinvertSurveyManagementTBL <- macroinvertbeltSurveySummTBL %>%
+  filter(!is.na(density_indha_avg)) %>% 
+  mutate(open_access = case_when(management_rules == "open access" ~ "Open Access",
+                                 .default = "Restrictions"),
+         open_access = factor(open_access,
+                              levels = c("Restrictions", "Open Access")))
+
+## Summarize to get the density by year and management (open access vs restricted)
+macroinvertbeltDensityByYearManagementTBL <- macroinvertSurveyManagementTBL %>% 
+  mutate(year = year(sample_date)) %>% 
+  group_by(year, open_access) %>% 
+  dplyr::summarise(MeanMacroinvertDensity = mean(density_indha_avg),
+                   .groups = "keep") 
+
+managementColorMap <- setNames(
+  object = c("#E69F00", "#70AAE6"),
+  nm = c("Open Access", "Restrictions"))
+
+macroinvertbeltTimeSeriesBarplot <- 
+  plot_ly(
+    data = macroinvertbeltDensityByYearManagementTBL,
+    x = ~year,
+    y = ~MeanMacroinvertDensity,
+    color = ~open_access,
+    colors = managementColorMap,
+    type = 'bar',
+    hovertemplate = paste('%{fullData.name}',
+                          '<br>Year: %{x}',
+                          '<br>%{y:.0f} ind/ha',
+                          '<extra></extra>'),
+    height = 450) %>%
+  config(displayModeBar = TRUE,
+         displaylogo = FALSE,
+         modeBarButtonsToRemove = c('zoom','pan', 'select', 'zoomIn', 'zoomOut',
+                                    'autoScale', 'resetScale', 'lasso2d',
+                                    'hoverClosestCartesian',
+                                    'hoverCompareCartesian')) %>% 
+  layout(bargap = 0.1,
+         xaxis = list(title = "Year",
+                      linecolor = "black",
+                      linewidth = 2,
+                      dtick = 1,           # Add this: tick every 1 year
+                      tick0 = min(macroinvertbeltDensityByYearManagementTBL$year)),  # Add this: start at first year
+         yaxis = list(title = "Macroinvertebrate density (ind/ha)",
+                      linecolor = "black",
+                      linewidth = 2),
+         annotations = list(
+           list(x = 0, y = 1.15, text = "MACROINVERTEBRATE DENSITY", showarrow = FALSE, 
+                xref = 'paper', yref = 'paper', xanchor = 'left', yanchor = 'top',
+                font = list(size = 20)),
+           list(x = 0, y = 1.08,
+                text = paste(length(macroinvertSurveyManagementTBL$density_indha_avg),
+                             " Surveys"),
+                showarrow = FALSE, 
+                xref = 'paper', yref = 'paper', xanchor = 'left', yanchor = 'top',
+                font = list(size = 12))
+         ),
+         legend = list(orientation = "h", xanchor = "center", x = 0.5, y = -0.2),
+         margin = list(t = 50, b = 75))
+
+# Visualize the plot
+macroinvertbeltTimeSeriesBarplot
+```
+
+------------------------------------------------------------------------
+
+## Barplot - Densities by trophic group (single survey)
+
+Barplot showing macroinvertebrate densities (y-axis) by trophic group (x-axis, with different colors for each group). This is an example with a single sample event (i.e. survey), but the code could easily be adapted to show averages across surveys or sites.
+
+```{r}
+#| label: Barplot - Macroinvertebrate density by trophic group (single survey)
+
+##  Get a single sample event that has density in each of the groups of interest as an example
+macroinvertbeltSingleSeTBL <- macroinvertbeltSurveySummTBL %>% 
+  filter(density_indha_avg > 0) %>% 
+  select(starts_with("density_indha_group_interest_avg"),
+        sample_unit_count) %>% 
+  select(-density_indha_group_interest_avg_other) %>% #remove "Other"
+  replace(is.na(.), 0) #replace NA's with zeroes
+
+## Define exact label mapping
+interestLabelMap <- c(
+  "conchs"              = "Conchs",
+  "crabsshrimps"        = "Crabs / Shrimps",
+  "cots"                = "COTS",
+  "corallivoroussnails" = "Corallivorous snails",
+  "giantclams"          = "Giant clams",
+  "lobsters"            = "Lobsters",
+  "octopus"             = "Octopus",
+  "pearloysters"        = "Pearl oysters",
+  "polychaeteworms"     = "Polychaete worms",
+  "seacucumbers"        = "Sea cucumbers",
+  "seaurchins"          = "Sea urchins",
+  "tritonstrumpets"     = "Triton's trumpets",
+  "trochusshells"       = "Trochus shells",
+  "turbanshells"        = "Turban shells"
+)
+
+## create fixed label and color mapping for the trophic levels
+interestLabels_raw <- gsub(
+  x = colnames(macroinvertbeltSingleSeTBL %>% select(-sample_unit_count)),
+  pattern = "density_indha_group_interest_avg_",
+  replacement = ""
+)
+
+
+## Apply mapping to get pretty labels
+interestLabels <- interestLabelMap[interestLabels_raw]
+names(interestLabels) <- NULL
+
+interestColorMap <- setNames(
+  object = c(  "#E69F00",
+               "#56B4E9",
+               "#009E73",
+               "#F0E442",
+               "#0072B2",
+               "#D55E00",
+               "#CC79A7",
+               "#999999",
+               "#117733",
+               "#882255",
+               "#44AA99",
+               "#AA4499",
+               "#332288",
+               "#DDCC77"),
+  nm = interestLabels)
+
+## Remove zero values before plotting
+interestCols <- colnames(macroinvertbeltSingleSeTBL %>% select(-sample_unit_count))
+
+values_all <- as.numeric(unlist(macroinvertbeltSingleSeTBL[1, interestCols], use.names = FALSE))
+
+keep <- values_all != 0
+
+interestLabels_plot <- as.character(interestLabels[keep])
+values_plot <- values_all[keep]
+
+# drop unused categories
+interestLabels_plot <- factor(interestLabels_plot, levels = interestLabels_plot)
+
+## Plot macroinvertebrate density by group of interest 
+macroinvertbeltSingleSeBarplot <- 
+  plot_ly(
+    x = interestLabels_plot,
+    y = values_plot,
+    type = "bar",
+    color = interestLabels_plot,
+    colors = interestColorMap[as.character(interestLabels_plot)],
+    marker = list(line = list(color = "black", width = 1)),
+    hovertemplate = paste('%{x}',
+                          '<br>%{y:.1f} ind/ha',
+                          '<extra></extra>'),
+    height = 450) %>% 
+  config(displayModeBar = TRUE,
+         displaylogo = FALSE,
+         modeBarButtonsToRemove = c('zoom','pan', 'select', 'zoomIn', 'zoomOut',
+                                    'autoScale', 'resetScale', 'lasso2d',
+                                    'hoverClosestCartesian',
+                                    'hoverCompareCartesian')) %>% 
+  layout(showlegend = FALSE,
+         bargap = 0.1,
+         xaxis = list(title = "Group of interest",
+                      linecolor = "black",
+                      linewidth = 2, tickangle = -45),
+         yaxis = list(title = "Macroinvertebrate density (ind/ha)",
+                      linecolor = "black",   # Set the y-axis line color to black
+                      linewidth = 2),
+         annotations = list(
+           list(x = 0, y = 1.15, text = "MACROINVERTEBRATE DENSITY", showarrow = FALSE, 
+                xref = 'paper', yref = 'paper', xanchor = 'left', yanchor = 'top',
+                font = list(size = 20)),
+           list(x = 0, y = 1.07,
+                text = paste0(macroinvertbeltSingleSeTBL$sample_unit_count[1],
+                              " sample units"),
+                showarrow = FALSE, 
+                xref = 'paper', yref = 'paper', xanchor = 'left', yanchor = 'top',
+                font = list(size = 12))
+         ),
+         margin = list(t = 50, b = 75))  # Increase top margin to create more space for title and subtitle
+
+# Visualize the plot
+macroinvertbeltSingleSeBarplot
+```

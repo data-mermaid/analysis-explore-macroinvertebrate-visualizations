@@ -1,0 +1,13 @@
+---
+title: "Index"
+format: 
+  html: #for website
+    embed-resources: true
+editor: visual
+---
+
+**WCS MERMAID Explore - Macroinvertebrate Vizualizations**
+
+-   [Macroinvertebrate visualization webpage](analysis_explore_macroinvertebrate_visualizations.html) (rendered html)
+
+-   [Repository](https://github.com/data-mermaid/analysis-explore-macroinvertebrate-visualizations)
