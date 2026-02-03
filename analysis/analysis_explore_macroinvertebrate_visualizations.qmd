@@ -36,19 +36,20 @@ options(scipen = 999) #turn off scientific notation
 # # If this is the first time using mermaidr, install the package through "remotes"
 # install.packages("remotes")
 # remotes::install_github("data-mermaid/mermaidr")
-# install.packages("tidyverse")
-# install.packages("plotly")
-# install.packages("htmlwidgets")
 
 library(mermaidr) #package to download data from datamermaid.org
 library(tidyverse) #package that makes it easier to work with data
 library(plotly) #for interactive plotting
 library(htmlwidgets) #for saving plots at html files
 library(readxl)
+library(googlesheets4)
 
-## Get mock-up data from local XLSX file
+# Tell googlesheets4 NOT to authenticate (for public sheets)
+gs4_deauth()
+
+## Get mock-up data from google drive link
 macroinvertbeltSurveySummTBL <- 
-  read_excel("../data/[mermaidr  mockup] Macroinvertebrates belt - Dummy data.xlsx",
+  read_sheet("18q1i0qWmN3YLHXsK_SUpksyZyZ4Khqlg_OK6TlCZEVY", 
              sheet = "sampleevents")
 
 #### This next section is what could eventually be used for summary sample events
@@ -222,6 +223,7 @@ Barplot showing macroinvertebrate densities (y-axis) by trophic group (x-axis, w
 ##  Get a single sample event that has density in each of the groups of interest as an example
 macroinvertbeltSingleSeTBL <- macroinvertbeltSurveySummTBL %>% 
   filter(density_indha_avg > 0) %>% 
+  slice(1) %>% #Take the first row as an example of a single SE
   select(starts_with("density_indha_group_interest_avg"),
         sample_unit_count) %>% 
   select(-density_indha_group_interest_avg_other) %>% #remove "Other"
@@ -276,11 +278,13 @@ interestColorMap <- setNames(
 
 ## Remove zero values before plotting
 interestCols <- colnames(macroinvertbeltSingleSeTBL %>% select(-sample_unit_count))
+values_all <- as.numeric(unlist(macroinvertbeltSingleSeTBL[interestCols], use.names = FALSE))
 
-values_all <- as.numeric(unlist(macroinvertbeltSingleSeTBL[1, interestCols], use.names = FALSE))
+## Calculate total density across all groups (including zeros; "Other" already removed above)
+total_density_indha <- sum(values_all, na.rm = TRUE)
 
+## Keep only groups with non-zero density for the bar chart
 keep <- values_all != 0
-
 interestLabels_plot <- as.character(interestLabels[keep])
 values_plot <- values_all[keep]
 
@@ -323,6 +327,13 @@ macroinvertbeltSingleSeBarplot <-
                               " sample units"),
                 showarrow = FALSE, 
                 xref = 'paper', yref = 'paper', xanchor = 'left', yanchor = 'top',
+                font = list(size = 12)),
+           list(x = 1, y = 1.07,
+                text = paste0("<b>Total density (interest groups):</b> ",
+                              format(round(total_density_indha, 1),
+                                     nsmall = 1), " ind/ha"),
+                showarrow = FALSE,
+                xref = "paper", yref = "paper", xanchor = "right", yanchor = "top",
                 font = list(size = 12))
          ),
          margin = list(t = 50, b = 75))  # Increase top margin to create more space for title and subtitle
