@@ -226,7 +226,7 @@ macroinvertbeltSingleSeTBL <- macroinvertbeltSurveySummTBL %>%
   slice(1) %>% #Take the first row as an example of a single SE
   select(starts_with("density_indha_group_interest_avg"),
         sample_unit_count) %>% 
-  select(-density_indha_group_interest_avg_other) %>% #remove "Other"
+  #select(-density_indha_group_interest_avg_other) %>% #remove "Other"
   replace(is.na(.), 0) #replace NA's with zeroes
 
 ## Define exact label mapping
@@ -244,7 +244,8 @@ interestLabelMap <- c(
   "seaurchins"          = "Sea urchins",
   "tritonstrumpets"     = "Triton's trumpets",
   "trochusshells"       = "Trochus shells",
-  "turbanshells"        = "Turban shells"
+  "turbanshells"        = "Turban shells",
+  "other"               = "Other"
 )
 
 ## create fixed label and color mapping for the trophic levels
@@ -253,7 +254,6 @@ interestLabels_raw <- gsub(
   pattern = "density_indha_group_interest_avg_",
   replacement = ""
 )
-
 
 ## Apply mapping to get pretty labels
 interestLabels <- interestLabelMap[interestLabels_raw]
@@ -267,13 +267,14 @@ interestColorMap <- setNames(
                "#0072B2",
                "#D55E00",
                "#CC79A7",
-               "#999999",
+               "white", #Other
                "#117733",
                "#882255",
                "#44AA99",
                "#AA4499",
                "#332288",
-               "#DDCC77"),
+               "#DDCC77",
+               "#999999"),
   nm = interestLabels)
 
 ## Remove zero values before plotting
@@ -288,7 +289,22 @@ keep <- values_all != 0
 interestLabels_plot <- as.character(interestLabels[keep])
 values_plot <- values_all[keep]
 
-# drop unused categories
+## Order bars by descending density, with "Other" always last
+is_other <- interestLabels_plot == "Other"
+order_idx <- c(
+  order(values_plot[!is_other], decreasing = TRUE),         # non-Other sorted desc
+  which(is_other)                                            # Other appended at end
+)
+# Re-index relative to the full vectors
+non_other_idx <- which(!is_other)
+other_idx     <- which(is_other)
+order_idx_full <- c(non_other_idx[order(values_plot[!is_other], decreasing = TRUE)],
+                    other_idx)
+
+interestLabels_plot <- interestLabels_plot[order_idx_full]
+values_plot         <- values_plot[order_idx_full]
+
+# Set factor levels to lock in the display order
 interestLabels_plot <- factor(interestLabels_plot, levels = interestLabels_plot)
 
 ## Plot macroinvertebrate density by group of interest 
@@ -329,7 +345,7 @@ macroinvertbeltSingleSeBarplot <-
                 xref = 'paper', yref = 'paper', xanchor = 'left', yanchor = 'top',
                 font = list(size = 12)),
            list(x = 1, y = 1.07,
-                text = paste0("<b>Total density (interest groups):</b> ",
+                text = paste0("<b>Total density:</b> ",
                               format(round(total_density_indha, 1),
                                      nsmall = 1), " ind/ha"),
                 showarrow = FALSE,
