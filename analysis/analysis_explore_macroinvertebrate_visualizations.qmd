@@ -141,7 +141,7 @@ macroinvertbeltAggHist
 
 ## Time series - Densities by year and management
 
-Barplots showing the average macroinvertebrate density (y-axis), each year (x-axis), separately for open access fisheries restricted areas (open access = green, restrictions = blue).
+Barplots showing the average macroinvertebrate density (y-axis), each year (x-axis), separately for open access and fisheries restricted areas (open access = orange, restrictions = blue).
 
 ```{r}
 #| label: Time series - Macroinvertebrate density by year and management
@@ -213,12 +213,12 @@ macroinvertbeltTimeSeriesBarplot
 
 ------------------------------------------------------------------------
 
-## Barplot - Densities by trophic group (single survey)
+## Barplot - Densities by group of interest (single survey)
 
-Barplot showing macroinvertebrate densities (y-axis) by trophic group (x-axis, with different colors for each group). This is an example with a single sample event (i.e. survey), but the code could easily be adapted to show averages across surveys or sites.
+Barplot showing macroinvertebrate densities (y-axis) by group of interest (x-axis, with different colors for each group). This is an example with a single sample event (i.e. survey), but the code could easily be adapted to show averages across surveys or sites.
 
 ```{r}
-#| label: Barplot - Macroinvertebrate density by trophic group (single survey)
+#| label: Barplot - Macroinvertebrate density by group of interest (single survey)
 
 ##  Get a single sample event that has density in each of the groups of interest as an example
 macroinvertbeltSingleSeTBL <- macroinvertbeltSurveySummTBL %>% 
